@@ -1,0 +1,282 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+    <title>学习新词 - 英语陪练</title>
+    <style>
+        * { margin:0; padding:0; box-sizing:border-box; font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif; }
+        body { background:#f7f8fa; padding-bottom:100px; }
+        .header { background:white; padding:16px; text-align:center; font-size:18px; font-weight:500; border-bottom:1px solid #e5e6eb; position:relative; }
+        .back-btn { position:absolute; left:16px; top:50%; transform:translateY(-50%); font-size:20px; cursor:pointer; background:none; border:none; }
+        .upload-area { background:white; margin:16px 12px; padding:20px; border-radius:12px; text-align:center; border:1px solid #e5e6eb; cursor:pointer; }
+        .upload-input { display:none; }
+        .word-count { padding:16px; color:#4e5969; font-size:16px; }
+        .word-list { background:white; margin:0 12px; border-radius:8px; overflow:hidden; max-height:60vh; overflow-y:auto; }
+        .word-item { display:flex; justify-content:space-between; align-items:center; padding:20px 16px; border-bottom:1px solid #f0f0f0; cursor:pointer; }
+        .word-info { flex:1; }
+        .word-main { display:flex; align-items:baseline; gap:12px; }
+        .word-text { font-size:36px; font-weight:500; }
+        .word-phonetic { font-size:16px; color:#909399; }
+        .word-meaning { font-size:18px; color:#52c41a; margin-top:8px; display:none; }
+        .word-meaning.show { display:block; }
+        .btn { width:36px; height:36px; border-radius:50%; border:1px solid #dcdfe6; display:flex; align-items:center; justify-content:center; font-size:18px; cursor:pointer; background:white; }
+        .btn-yes.active { background:#52c41a; border-color:#52c41a; color:white; }
+        .study-footer { position:fixed; bottom:0; left:0; right:0; padding:16px; background:white; border-top:1px solid #e5e6eb; display:flex; justify-content:space-between; align-items:center; max-width:600px; margin:0 auto; }
+        .study-btn { padding:10px 24px; border-radius:8px; border:none; font-size:16px; cursor:pointer; background:#52c41a; color:white; }
+        .study-btn:disabled { background:#c0c4cc; }
+        .select-count { color:#4e5969; }
+        .progress-tip { background:#e6f7ff; padding:12px; margin:12px; border-radius:8px; text-align:center; color:#1890ff; font-size:14px; }
+        .practice-page { display:none; }
+        .detect-page { display:block; }
+        .practice-word-item { background:white; border-radius:12px; padding:20px 16px; margin-bottom:12px; display:flex; justify-content:space-between; align-items:center; border:2px solid transparent; cursor:pointer; }
+        .practice-word-item.active { border-color:#52c41a; background:#f6ffed; }
+        .practice-word-item.inactive { opacity:0.5; }
+        .practice-word-text { font-size:32px; font-weight:500; }
+        .practice-word-meaning { font-size:18px; color:#52c41a; margin-top:8px; display:none; }
+        .practice-word-meaning.show { display:block; }
+        .practice-word-phonetic { font-size:14px; color:#909399; margin-top:4px; }
+        .step-btn { width:48px; height:48px; border-radius:50%; background:#52c41a; color:white; border:none; font-size:18px; font-weight:bold; cursor:pointer; }
+        .control-bar { position:fixed; bottom:0; left:0; right:0; padding:12px 16px; background:white; border-top:1px solid #e5e6eb; display:flex; gap:12px; max-width:600px; margin:0 auto; }
+        .control-btn,.speed-select { padding:8px 16px; border-radius:8px; border:1px solid #dcdfe6; background:white; font-size:14px; cursor:pointer; }
+        .review-page,.posttest-page { display:none; }
+        .complete-btn { margin:16px 12px; padding:14px; background:#52c41a; color:white; border:none; border-radius:12px; font-size:16px; cursor:pointer; width:calc(100% - 24px); }
+    </style>
+</head>
+<body>
+    <div class="detect-page" id="detectPage">
+        <div class="header"><button class="back-btn" onclick="window.location.href='index.html'">←</button>选择新词</div>
+        <div class="upload-area" onclick="document.getElementById('fileInput').click()">
+            <div>📂 点击导入词库 (txt格式)</div><div style="font-size:12px;color:#999;margin-top:8px;">格式：abandon /əˈbændən/ v. 放弃</div>
+            <input type="file" id="fileInput" class="upload-input" accept=".txt">
+        </div>
+        <div id="wordCountArea" style="display:none;"><div class="word-count" id="wordCount">当前共有 0 个可选单词</div><div class="word-list" id="wordList"></div></div>
+        <div class="study-footer" id="studyFooter" style="display:none;"><div class="select-count">已选择 <span id="selectedCount">0</span> 个单词学习</div><button class="study-btn" id="startBtn" disabled>开始学习</button></div>
+    </div>
+    <div class="practice-page" id="practicePage">
+        <div class="practice-header"><div class="group-info" id="groupInfo">第1组 / 共1组</div><button class="back-btn" onclick="backToSelect()">←</button></div>
+        <div class="progress-tip">📖 点击绿色按钮学习，第3/4次显示释义</div>
+        <div class="practice-word-list" id="practiceWordList"></div>
+        <div class="control-bar"><button class="control-btn" onclick="manualRead()">🔄 人工带读</button>
+        <select class="speed-select" id="speedSelect" onchange="changeSpeed()"><option value="1.2">1.2x</option><option value="1.5" selected>1.5x</option><option value="2.0">2.0x</option></select>
+        <!-- 直接组内复习 按钮 -->
+    <button class="control-btn" onclick="jumpToGroupReview()">直接组内复习</button>
+    </div>
+    </div>
+    <div class="review-page" id="reviewPage">
+        <div class="header"><button class="back-btn" onclick="backToPractice()">←</button>组内复习</div>
+        <div class="progress-tip">📖 点击卡片发音（再次点击显示释义）</div>
+        <div class="practice-word-list" id="reviewWordList"></div>
+        <button class="complete-btn" id="completeReviewBtn">完成复习，继续下一组</button>
+    </div>
+    <div class="posttest-page" id="posttestPage">
+        <div class="header"><button class="back-btn" onclick="backToSelect()">←</button>训后检测</div>
+        <div class="progress-tip">✅ 点击"认识"或"不认识"标记单词</div>
+        <div class="practice-word-list" id="posttestWordList"></div>
+        <button class="complete-btn" id="completePosttestBtn">完成检测，保存数据</button>
+    </div>
+
+<script>
+function getQuery(name){var reg=new RegExp("(^|&)"+name+"=([^&]*)(&|$)","i");var r=window.location.search.substr(1).match(reg);if(r!=null)return decodeURIComponent(r[2]);return null;}
+var currentKid = getQuery('kid');
+
+function parseWordLine(line){line=line.trim();if(!line)return null;var match = line.match(/^(\S+)\s+(\/[^\/]+\/)\s+(.+)$/);if(match){return {word:match[1],phonetic:match[2],meaning:match[3]};}return null;}
+function cleanMeaning(m){if(!m)return'';return m.replace(/^[a-z\\/]+\\.\\s*/,'').replace(/[；;]\\s*[a-z\\/]+\\.\\s*/g,'；');}
+
+var audioQueue=[],isPlaying=false,currentSpeed=1.5;
+function processQueue(){if(isPlaying||audioQueue.length===0)return;isPlaying=true;var item=audioQueue.shift();var a=new Audio(item.url);a.playbackRate=currentSpeed;a.onended=function(){isPlaying=false;processQueue();};a.play().catch(function(){isPlaying=false;processQueue();});}
+function speak(w){audioQueue.push({url:'https://dict.youdao.com/dictvoice?audio='+encodeURIComponent(w)+'&type=1'});processQueue();}
+function speakZh(t){audioQueue.push({url:'https://dict.youdao.com/dictvoice?audio='+encodeURIComponent(t)+'&type=2'});processQueue();}
+function changeSpeed(){currentSpeed=parseFloat(document.getElementById('speedSelect').value);}
+function manualRead(){if(studyState.currentIndex<currentGroup.length)speak(currentGroup[studyState.currentIndex].word);}
+
+var fullWordList=[],selectedWords=[],allLearnedWords=[],currentGroup=[],currentGroupIndex=0,totalGroups=0,studyGroups=[],practiceClickCount=new Map(),reviewWords=[],posttestWords=[],posttestResults=new Map();
+var studyState={currentIndex:0,step:0,reviewMode:false,reviewQueue:[],reviewPos:0,learnedIndices:[]};
+var currentVisibleMeaningEl=null,clickStates=new Map();
+
+document.getElementById('fileInput').addEventListener('change',function(e){
+    var file=e.target.files[0];if(!file||!currentKid)return;
+    var libraryKey='library_'+currentKid+'_'+file.name;
+    var reader=new FileReader();
+    reader.onload=function(ev){
+        var lines=ev.target.result.split('\n').filter(l=>l.trim());
+        var learned=localStorage.getItem(libraryKey);
+        var learnedList=learned?JSON.parse(learned):[];
+        var learnedSet=new Set(learnedList.map(x=>x.word));
+        fullWordList=[];
+        for(var i=0;i<lines.length;i++){
+            var p=parseWordLine(lines[i]);
+            if(p&&p.word&&!learnedSet.has(p.word))fullWordList.push(p);
+        }
+        if(fullWordList.length===0){alert('已学完');return;}
+        window.currentLibraryKey=libraryKey;
+        selectedSet.clear();renderWordList();
+        document.getElementById('wordCountArea').style.display='block';
+        document.getElementById('studyFooter').style.display='flex';
+    };
+    reader.readAsText(file,'UTF-8');
+});
+
+var selectedSet=new Set();
+function escapeHtml(s){if(!s)return'';return s.replace(/[&<>]/g,m=>m==='&'?'&amp;':m==='<'?'&lt;':'&gt;');}
+function renderWordList(){
+    document.getElementById('wordCount').textContent='当前共有 '+fullWordList.length+' 个可选单词';
+    var c=document.getElementById('wordList');c.innerHTML='';
+    for(var i=0;i<fullWordList.length;i++){
+        var w=fullWordList[i];
+        var sel=selectedSet.has(w.word);
+        var div=document.createElement('div');div.className='word-item';
+        var info=document.createElement('div');info.className='word-info';info.style.display='flex';info.style.alignItems='center';info.style.gap='12px';
+        var left=document.createElement('div');
+        var main=document.createElement('div');main.className='word-main';
+        var wt=document.createElement('span');wt.className='word-text';wt.textContent=w.word;
+        var ph=document.createElement('span');ph.className='word-phonetic';ph.textContent=w.phonetic;
+        main.appendChild(wt);main.appendChild(ph);left.appendChild(main);
+        var m=document.createElement('div');m.className='word-meaning';m.textContent=w.meaning;m.style.marginLeft='auto';m.style.maxWidth='40%';m.style.textAlign='right';
+        info.appendChild(left);info.appendChild(m);
+        info.onclick=(function(ww,mm){return function(){
+            var st=clickStates.get(ww)||0;
+            if(currentVisibleMeaningEl&&currentVisibleMeaningEl!==mm){currentVisibleMeaningEl.classList.remove('show');clickStates.clear();}
+            if(st===0){speak(ww);clickStates.set(ww,1);}
+            else if(st===1){mm.classList.add('show');currentVisibleMeaningEl=mm;clickStates.set(ww,2);}
+        };})(w.word,m);
+        var btn=document.createElement('button');btn.className='btn btn-yes'+(sel?' active':'');btn.textContent='✓';
+        btn.onclick=(function(ww,b){return function(e){e.stopPropagation();if(selectedSet.has(ww)){selectedSet.delete(ww);b.classList.remove('active');}else{selectedSet.add(ww);b.classList.add('active');}document.getElementById('selectedCount').textContent=selectedSet.size;document.getElementById('startBtn').disabled=selectedSet.size===0;};})(w.word,btn);
+        var bd=document.createElement('div');bd.className='action-btns';bd.style.marginLeft='8px';bd.appendChild(btn);
+        div.appendChild(info);div.appendChild(bd);c.appendChild(div);
+    }
+    document.getElementById('selectedCount').textContent=selectedSet.size;
+    document.getElementById('startBtn').disabled=selectedSet.size===0;
+}
+
+document.getElementById('startBtn').onclick=function(){selectedWords=fullWordList.filter(w=>selectedSet.has(w.word));if(selectedWords.length===0)return;startNewStudy();};
+function startNewStudy(){studyGroups=[];for(var i=0;i<selectedWords.length;i+=5)studyGroups.push(selectedWords.slice(i,i+5));allLearnedWords=[];currentGroupIndex=0;startGroup(0);}
+function startGroup(g){if(g>=studyGroups.length){startPostTest();return;}currentGroup=studyGroups[g];currentGroupIndex=g;totalGroups=studyGroups.length;document.getElementById('detectPage').style.display='none';document.getElementById('practicePage').style.display='block';document.getElementById('groupInfo').textContent='第'+(g+1)+'组 / 共'+totalGroups+'组';studyState={currentIndex:0,step:0,reviewMode:false,reviewQueue:[],reviewPos:0,learnedIndices:[]};practiceClickCount.clear();renderPracticeList();}
+function renderPracticeList(){
+    var c=document.getElementById('practiceWordList');c.innerHTML='';
+    for(var i=0;i<currentGroup.length;i++){
+        var w=currentGroup[i];
+        var act=i===studyState.currentIndex;
+        var d=document.createElement('div');d.className='practice-word-item '+(act?'active':'inactive');
+        var l=document.createElement('div');l.style.flex=1;l.style.display='flex';l.style.alignItems='center';l.style.gap='12px';
+        var wp=document.createElement('div');
+        var wd=document.createElement('div');wd.className='practice-word-text';wd.textContent=w.word;
+        var ph=document.createElement('div');ph.className='practice-word-phonetic';ph.textContent=w.phonetic;
+        wp.appendChild(wd);wp.appendChild(ph);
+        var m=document.createElement('div');m.className='practice-word-meaning';m.textContent=w.meaning;m.style.marginLeft='auto';m.style.textAlign='right';
+        if(act&&(studyState.step===3||studyState.step===4))m.classList.add('show');
+        l.appendChild(wp);l.appendChild(m);
+        l.onclick=function(ww){return function(){speak(ww);};}(w.word);
+        var btn=document.createElement('button');btn.className='step-btn';btn.textContent=studyState.step>0?studyState.step:'1';btn.onclick=(function(idx){return function(e){e.stopPropagation();handleStudyStep(idx);};})(i);
+        d.appendChild(l);d.appendChild(btn);c.appendChild(d);
+    }
+}
+function handleStudyStep(idx){
+    if(idx!==studyState.currentIndex)return;
+    var w=currentGroup[studyState.currentIndex];
+    if(!studyState.reviewMode){
+        studyState.step++;
+        switch(studyState.step){
+            case 1:speak(w.word);break;
+            case 2:
+                // speak(w.word);speak(w.word);speak(w.word);
+                break;
+            case 3:
+                // speak(w.word);
+                setTimeout(()=>speakZh(w.meaning),600);break;
+            case 4:
+                // speak(w.word);speak(w.word);
+            setTimeout(()=>speakZh(w.meaning),800);break;
+            case 5:speak(w.word);finishCurrentWord();break;
+        }
+    }else{speak(w.word);nextReview();}
+    renderPracticeList();
+}
+function finishCurrentWord(){studyState.learnedIndices.push(studyState.currentIndex);allLearnedWords.push(currentGroup[studyState.currentIndex]);var q=[];for(var i=studyState.learnedIndices.length-2;i>=0;i--)q.push(studyState.learnedIndices[i]);for(var i=1;i<studyState.learnedIndices.length;i++)q.push(studyState.learnedIndices[i]);if(q.length>0){studyState.reviewMode=true;studyState.reviewQueue=q;studyState.reviewPos=0;studyState.step=0;studyState.currentIndex=q[0];studyState.reviewPos=1;}else{studyState.step=0;studyState.currentIndex++;if(studyState.currentIndex>=currentGroup.length){startGroupReview();return;}}renderPracticeList();}
+function nextReview(){if(studyState.reviewPos>=studyState.reviewQueue.length){studyState.reviewMode=false;studyState.reviewQueue=[];studyState.reviewPos=0;studyState.step=0;studyState.currentIndex++;if(studyState.currentIndex>=currentGroup.length)startGroupReview();}else{studyState.currentIndex=studyState.reviewQueue[studyState.reviewPos];studyState.reviewPos++;}renderPracticeList();}
+function startGroupReview(){reviewWords=currentGroup.slice();clickStates.clear();currentVisibleMeaningEl=null;renderReviewList();document.getElementById('practicePage').style.display='none';document.getElementById('reviewPage').style.display='block';}
+function renderReviewList(){var c=document.getElementById('reviewWordList');c.innerHTML='';for(var i=0;i<reviewWords.length;i++){var w=reviewWords[i];var d=document.createElement('div');d.className='practice-word-item';d.style.margin='0 12px 12px';var l=document.createElement('div');l.style.flex=1;l.style.display='flex';l.style.alignItems='center';l.style.gap='12px';var wp=document.createElement('div');var wd=document.createElement('div');wd.className='practice-word-text';wd.textContent=w.word;var ph=document.createElement('div');ph.className='practice-word-phonetic';ph.textContent=w.phonetic;wp.appendChild(wd);wp.appendChild(ph);var m=document.createElement('div');m.className='practice-word-meaning';m.textContent=w.meaning;m.style.marginLeft='auto';m.style.textAlign='right';l.appendChild(wp);l.appendChild(m);l.onclick=(function(ww,mm){return function(){var st=clickStates.get(ww)||0;if(currentVisibleMeaningEl&&currentVisibleMeaningEl!==mm){currentVisibleMeaningEl.classList.remove('show');clickStates.clear();}if(st===0){speak(ww);clickStates.set(ww,1);}else if(st===1){mm.classList.add('show');currentVisibleMeaningEl=mm;clickStates.set(ww,2);};};})(w.word,m);d.appendChild(l);c.appendChild(d);}}
+document.getElementById('completeReviewBtn').onclick=function(){document.getElementById('reviewPage').style.display='none';startGroup(currentGroupIndex+1);};
+function startPostTest(){posttestWords=allLearnedWords.slice();posttestResults.clear();clickStates.clear();currentVisibleMeaningEl=null;renderPostTestList();document.getElementById('practicePage').style.display='none';document.getElementById('reviewPage').style.display='none';document.getElementById('posttestPage').style.display='block';}
+function renderPostTestList(){var c=document.getElementById('posttestWordList');c.innerHTML='';for(var i=0;i<posttestWords.length;i++){var w=posttestWords[i];var r=posttestResults.get(w.word);var d=document.createElement('div');d.className='practice-word-item';d.style.margin='0 12px 12px';d.style.padding='16px';var l=document.createElement('div');l.style.flex=1;l.style.display='flex';l.style.alignItems='center';l.style.gap='12px';var wp=document.createElement('div');var wd=document.createElement('div');wd.className='practice-word-text';wd.textContent=w.word;var ph=document.createElement('div');ph.className='practice-word-phonetic';ph.textContent=w.phonetic;wp.appendChild(wd);wp.appendChild(ph);var m=document.createElement('div');m.className='practice-word-meaning';m.textContent=w.meaning;m.style.marginLeft='auto';m.style.textAlign='right';m.style.maxWidth='40%';l.appendChild(wp);l.appendChild(m);l.onclick=(function(ww,mm){return function(){var st=clickStates.get(ww)||0;if(currentVisibleMeaningEl&&currentVisibleMeaningEl!==mm){currentVisibleMeaningEl.classList.remove('show');clickStates.clear();}if(st===0){speak(ww);clickStates.set(ww,1);}else if(st===1){mm.classList.add('show');currentVisibleMeaningEl=mm;clickStates.set(ww,2);}};})(w.word,m);var btns=document.createElement('div');btns.style.display='flex';btns.style.gap='8px';btns.style.marginLeft='8px';var y=document.createElement('button');y.className='btn btn-yes'+(r===true?' active':'');y.textContent='✓';y.onclick=(function(ww){return function(e){e.stopPropagation();posttestResults.set(ww,true);renderPostTestList();};})(w.word);var n=document.createElement('button');n.className='btn';n.textContent='✗';n.style.borderColor=r===false?'#ff4d4f':'#dcdfe6';n.style.color=r===false?'#ff4d4f':'';n.onclick=(function(ww){return function(e){e.stopPropagation();posttestResults.set(ww,false);renderPostTestList();};})(w.word);btns.appendChild(y);btns.appendChild(n);d.appendChild(l);d.appendChild(btns);c.appendChild(d);}}
+
+document.getElementById('completePosttestBtn').onclick=function(){
+    var wrong=posttestWords.filter(w=>posttestResults.get(w.word)===false);
+    var correct=posttestWords.filter(w=>posttestResults.get(w.word)===true);
+    
+    // 构建本节课数据
+    var lesson={
+        date:new Date().toISOString().slice(0,10),
+        words:allLearnedWords,
+        masteredCount:correct.length,
+        wrongCount:wrong.length,
+        wrongWords:wrong
+    };
+
+    // ✅ 保存到【词库已学】（原有逻辑，保留）
+    if (window.currentLibraryKey) {
+        var libLearned = localStorage.getItem(window.currentLibraryKey);
+        var libList = libLearned ? JSON.parse(libLearned) : [];
+        var libSet = new Set(libList.map(x => x.word));
+        var todayDate = new Date().toISOString().split('T')[0];
+
+        allLearnedWords.forEach(x => {
+            if (!libSet.has(x.word)) {
+                libList.push({ ...x, learnDate: todayDate });
+            }
+        });
+        localStorage.setItem(window.currentLibraryKey, JSON.stringify(libList));
+        
+        // ✅ 【核心修改】累计同一节课的学习记录
+        let lastLessonKey = 'lastLesson_' + window.currentLibraryKey;
+        let existingLastLesson = localStorage.getItem(lastLessonKey);
+        let finalLesson = lesson;
+
+        // 如果已有上节课记录，就合并
+        if (existingLastLesson) {
+            let oldLesson = JSON.parse(existingLastLesson);
+            // 合并单词（去重）
+            let allWords = [...oldLesson.words, ...lesson.words];
+            let uniqueWords = Array.from(new Map(allWords.map(item => [item.word, item])).values());
+            
+            // 累计统计数
+            finalLesson = {
+                date: lesson.date,
+                words: uniqueWords,
+                masteredCount: oldLesson.masteredCount + lesson.masteredCount,
+                wrongCount: oldLesson.wrongCount + lesson.wrongCount
+            };
+        }
+
+        // 保存合并后的记录
+        localStorage.setItem(lastLessonKey, JSON.stringify(finalLesson));
+    }
+
+    // 保存历史记录（原有逻辑，保留）
+    var history=localStorage.getItem('history');
+    var h=history?JSON.parse(history):[];
+    h.push({
+        date:lesson.date,
+        newWords:allLearnedWords.length,
+        mastered:correct.length,
+        wrong:wrong.length
+    });
+    localStorage.setItem('history',JSON.stringify(h));
+
+    alert('完成！正确 '+correct.length+' 错误 '+wrong.length);
+    window.location.href='index.html';
+};
+
+function backToSelect(){if(confirm('返回将丢失进度？'))window.location.href='new-study.html?kid='+encodeURIComponent(currentKid);}
+function backToPractice(){document.getElementById('reviewPage').style.display='none';document.getElementById('practicePage').style.display='block';renderPracticeList();}
+
+// 直接跳转到组内复习
+function jumpToGroupReview() {
+    if (confirm('确定要直接进入组内复习吗？')) {
+        startGroupReview();
+    }
+}
+
+</script>
+</body>
+</html>

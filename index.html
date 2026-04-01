@@ -1,0 +1,422 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+    <title>英语陪练 - 首页</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+        }
+        body {
+            background: #f7f8fa;
+            min-height: 100vh;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+        .container {
+            max-width: 500px;
+            width: 90%;
+            margin: 20px auto;
+        }
+        .header {
+            background: white;
+            padding: 20px;
+            text-align: center;
+            font-size: 24px;
+            font-weight: bold;
+            color: #52c41a;
+            border-radius: 16px;
+            margin-bottom: 20px;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+        }
+        .kid-row {
+            display: flex;
+            gap: 8px;
+            margin-bottom: 10px;
+        }
+        .kid-select, .library-select {
+            width: 100%;
+            padding: 12px 16px;
+            border-radius: 12px;
+            border: 1px solid #dcdfe6;
+            font-size: 16px;
+            background: white;
+        }
+        .add-kid-btn {
+            padding: 12px 14px;
+            border-radius: 12px;
+            border: 1px solid #dcdfe6;
+            background: white;
+            font-size: 16px;
+            cursor: pointer;
+            white-space: nowrap;
+        }
+        .stats-card {
+            background: white;
+            border-radius: 16px;
+            padding: 20px;
+            margin: 16px 0;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+        }
+        .stats-title {
+            font-size: 16px;
+            color: #666;
+            margin-bottom: 16px;
+            padding-bottom: 8px;
+            border-bottom: 1px solid #eee;
+        }
+        .stat-row {
+            display: flex;
+            justify-content: space-between;
+            margin-bottom: 12px;
+        }
+        .stat-label {
+            color: #999;
+        }
+        .stat-value {
+            font-size: 20px;
+            font-weight: bold;
+            color: #52c41a;
+        }
+        .btn {
+            width: 100%;
+            padding: 16px;
+            border: none;
+            border-radius: 12px;
+            font-size: 18px;
+            font-weight: 500;
+            cursor: pointer;
+            margin-bottom: 12px;
+            transition: transform 0.2s;
+        }
+        .btn:active {
+            transform: scale(0.98);
+        }
+        .btn-review {
+            background: #1890ff;
+            color: white;
+        }
+        .btn-new {
+            background: #52c41a;
+            color: white;
+        }
+        .btn-reset {
+            background: #f0f0f0;
+            color: #666;
+        }
+        .btn-reset-lesson {
+            background: #ff7875;
+            color: white;
+        }
+        .tip {
+            font-size: 12px;
+            color: #999;
+            text-align: center;
+            margin-top: 20px;
+        }
+    </style>
+    <!-- 引入PDF生成依赖（新增中文字体支持） -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
+    <!-- 引入中文字体转换工具 -->
+    <script src="https://cdn.jsdelivr.net/npm/jspdf-customfonts/dist/jspdf.customfonts.min.js"></script>
+    <!-- 加载思源黑体（免费商用中文字体） -->
+    <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+SC:wght@400;500;700&display=swap" rel="stylesheet">
+</head>
+<body>
+    <div class="container">
+        <div class="header">📚 英语陪练</div>
+        <div class="kid-row">
+            <select id="kidSelect" class="kid-select" onchange="switchKid()">
+                <option value="">-- 选择孩子 --</option>
+            </select>
+            <button class="add-kid-btn" onclick="addKid()">➕ 添加</button>
+        </div>
+        <select id="librarySelect" class="library-select" onchange="switchLibrary()" disabled>
+            <option value="">-- 请选择词库 --</option>
+        </select>
+        <div class="stats-card">
+            <div class="stats-title">📊 学习统计（当前孩子+词库）</div>
+            <div class="stat-row">
+                <span class="stat-label">上节课单词</span>
+                <span class="stat-value" id="lastLessonCount" style="cursor:pointer" onclick="generateLastLessonPDF()">0</span>
+            </div>
+            <div class="stat-row">
+                <span class="stat-label">上节课掌握</span>
+                <span class="stat-value" id="masteredCount">0</span>
+            </div>
+            <div class="stat-row">
+                <span class="stat-label">上节课未掌握</span>
+                <span class="stat-value" id="wrongCount">0</span>
+            </div>
+            <div class="stat-row">
+                <span class="stat-label">词库已学</span>
+               <span class="stat-value" id="totalLearned" style="cursor:pointer" onclick="goToLearnedWords()">0</span>
+            </div>
+        </div>
+        <button class="btn btn-review" onclick="goToReview()">📖 复习【上节课】学习的单词</button>
+        <button class="btn btn-new" onclick="goToNewStudy()">✨ 学习新单词</button>
+        <button class="btn btn-reset-lesson" onclick="resetLastLesson()">🗑️ 重置上节课记录</button>
+        <button class="btn btn-reset" onclick="resetCurrent()">🔄 重置当前孩子+词库</button>
+        <div class="tip">
+            💡 每个孩子 + 每个词库 独立保存<br>
+            复习只会复习【上一节课】学过的内容<br>
+            📄 点击「上节课单词」数字可生成打印PDF
+        </div>
+    </div>
+
+    <script>
+        var currentKid = null;
+        var currentLibKey = null;
+
+        // 加载孩子列表
+        function loadKidList() {
+            let sel = document.getElementById('kidSelect');
+            sel.innerHTML = '<option value="">-- 选择孩子 --</option>';
+            let kids = JSON.parse(localStorage.getItem('kids') || '[]');
+            kids.forEach(k => {
+                let opt = document.createElement('option');
+                opt.value = k;
+                opt.textContent = k;
+                sel.appendChild(opt);
+            });
+        }
+
+        // 添加孩子
+        function addKid() {
+            let name = prompt('请输入孩子姓名：');
+            if (!name) return;
+            name = name.trim();
+            if (!name) return;
+            let kids = JSON.parse(localStorage.getItem('kids') || '[]');
+            if (kids.includes(name)) {
+                alert('该孩子已存在');
+                return;
+            }
+            kids.push(name);
+            localStorage.setItem('kids', JSON.stringify(kids));
+            loadKidList();
+        }
+
+        // 切换孩子
+        function switchKid() {
+            currentKid = document.getElementById('kidSelect').value;
+            let libSel = document.getElementById('librarySelect');
+            libSel.disabled = !currentKid;
+            libSel.selectedIndex = 0;
+            currentLibKey = null;
+            loadLibraryList();
+            loadStats();
+        }
+
+        // 加载词库
+        function loadLibraryList() {
+            var select = document.getElementById('librarySelect');
+            select.innerHTML = '<option value="">-- 请选择词库 --</option>';
+            if (!currentKid) return;
+            for (var i = 0; i < localStorage.length; i++) {
+                var key = localStorage.key(i);
+                if (key.startsWith('library_') && key.includes('_'+currentKid+'_')) {
+                    let realName = key.replace('library_'+currentKid+'_', '');
+                    var opt = document.createElement('option');
+                    opt.value = key;
+                    opt.textContent = realName;
+                    select.appendChild(opt);
+                }
+            }
+        }
+
+        function switchLibrary() {
+            currentLibKey = document.getElementById('librarySelect').value;
+            loadStats();
+        }
+
+        function loadStats() {
+            var lastCount = 0, mastered = 0, wrong = 0, total = 0;
+            if (currentKid && currentLibKey) {
+                var libData = localStorage.getItem(currentLibKey);
+                if (libData) total = JSON.parse(libData).length;
+                var lastLesson = localStorage.getItem('lastLesson_'+currentLibKey);
+                if (lastLesson) {
+                    var lesson = JSON.parse(lastLesson);
+                    lastCount = lesson.words ? lesson.words.length : 0;
+                    mastered = lesson.masteredCount || 0;
+                    wrong = lesson.wrongCount || 0;
+                }
+            }
+            document.getElementById('lastLessonCount').textContent = lastCount;
+            document.getElementById('masteredCount').textContent = mastered;
+            document.getElementById('wrongCount').textContent = wrong;
+            document.getElementById('totalLearned').textContent = total;
+        }
+
+        function goToReview() {
+            if (!currentKid || !currentLibKey) { alert('请先选孩子+词库'); return; }
+            var lesson = localStorage.getItem('lastLesson_'+currentLibKey);
+            if (!lesson) { alert('暂无学习记录'); return; }
+            window.location.href = 'review.html?kid='+encodeURIComponent(currentKid)+'&lib='+encodeURIComponent(currentLibKey);
+        }
+
+        function goToNewStudy() {
+            if (!currentKid) { alert('请先选择孩子'); return; }
+            window.location.href = 'new-study.html?kid='+encodeURIComponent(currentKid);
+        }
+
+        function resetCurrent() {
+            if (!currentKid || !currentLibKey) { alert('请先选择'); return; }
+            if (confirm('确定重置当前孩子+词库？所有进度会清空！')) {
+                localStorage.removeItem(currentLibKey);
+                localStorage.removeItem('lastLesson_'+currentLibKey);
+                loadLibraryList();
+                loadStats();
+                alert('已重置');
+            }
+        }
+
+        // 跳转到已学单词列表页
+        function goToLearnedWords() {
+            if (!currentKid || !currentLibKey) {
+                alert('请先选择孩子和词库');
+                return;
+            }
+            window.location.href = 'learned-list.html?kid='+encodeURIComponent(currentKid)+'&lib='+encodeURIComponent(currentLibKey);
+        }
+
+        function generateLastLessonPDF() {
+    // 1. 基础校验
+    if (!currentKid || !currentLibKey) {
+        alert('请先选择孩子和词库！');
+        return;
+    }
+    const lastLesson = localStorage.getItem('lastLesson_'+currentLibKey);
+    if (!lastLesson) {
+        alert('暂无上节课学习记录！');
+        return;
+    }
+    const lessonData = JSON.parse(lastLesson);
+    const allLearnedWords = lessonData.words || []; // 复用你原代码的变量名
+    if (allLearnedWords.length === 0) {
+        alert('上节课无学习单词！');
+        return;
+    }
+
+    // 2. 选择显示模式（和你原逻辑对齐）
+    const type = prompt(`请选择PDF显示模式：
+cn-en = 中英文（默认）
+cn = 仅中文
+en = 仅英文`, 'cn-en').trim() || 'cn-en';
+    if (!['cn-en','cn','en'].includes(type)) {
+        alert('请输入正确的模式：cn-en/cn/en！');
+        return;
+    }
+
+    // 3. 复用你原有的表格生成逻辑（核心：5词一板块、3列布局）
+    const COLUMNS = 3;
+    const BLOCK_SIZE = 5;
+    let html = `
+        <div style="width: 210mm; padding: 15mm; font-family: 'Microsoft Yahei', sans-serif;">
+            <h2 style="margin:0 0 20px 0; font-size:20px;">【${currentKid}】上节课学习单词（共${allLearnedWords.length}个）</h2>
+            <table style="width:100%; border-collapse:collapse;">
+    `;
+
+    // 你的核心表格生成逻辑（完全复用，只改了变量名）
+    for (let blockStart = 0; blockStart < allLearnedWords.length; blockStart += BLOCK_SIZE * COLUMNS) {
+        for (let row = 0; row < BLOCK_SIZE; row++) {
+            html += '<tr>';
+            for (let col = 0; col < COLUMNS; col++) {
+                const idx = blockStart + col * BLOCK_SIZE + row;
+                if (idx < allLearnedWords.length) {
+                    html += `<td style="border:1px solid #ddd; padding:12px; text-align:left; vertical-align:top; width:33.33%;">`;
+                    if (type === 'en' || type === 'cn-en') {
+                        html += `<div style="font-weight:bold; font-size:18px; display:inline-block; min-width:120px;">${allLearnedWords[idx].word}</div>`;
+                    }
+                    if (type === 'cn' || type === 'cn-en') {
+                        html += `<div style="color:#666; display:inline-block;">${allLearnedWords[idx].meaning}</div>`;
+                    }
+                    html += `</td>`;
+                } else {
+                    html += `<td style="border:1px solid #ddd;">&nbsp;</td>`;
+                }
+            }
+            html += '</tr>';
+        }
+        html += '<tr><td colspan="3" style="border:none; height:16px;"></td></tr>';
+    }
+
+    html += `
+            </table>
+        </div>
+    `;
+
+    // 4. 创建临时DOM承载表格（和你原逻辑一致，保证中文渲染）
+    const tempDiv = document.createElement('div');
+    tempDiv.style.position = 'fixed';
+    tempDiv.style.top = '-9999px';
+    tempDiv.style.left = '-9999px';
+    tempDiv.style.width = '210mm'; // A4宽度，保证排版
+    tempDiv.innerHTML = html;
+    document.body.appendChild(tempDiv);
+
+    // 5. HTML转图片再转PDF（核心：解决中文乱码，和你能成功打印的逻辑对齐）
+    html2canvas(tempDiv, {
+        scale: 2, // 高清渲染，打印清晰
+        useCORS: true,
+        logging: false,
+        backgroundColor: '#ffffff' // 白底，避免透明背景
+    }).then(canvas => {
+        const { jsPDF } = window.jspdf;
+        const pdf = new jsPDF({
+            orientation: 'portrait',
+            unit: 'mm',
+            format: 'a4'
+        });
+
+        // 图片转PDF（适配A4尺寸）
+        const imgWidth = 210;
+        const imgHeight = canvas.height * imgWidth / canvas.width;
+        let position = 0;
+
+        pdf.addImage(canvas.toDataURL('image/png'), 'PNG', 0, position, imgWidth, imgHeight);
+        // 分页处理（内容超过A4高度时自动分页）
+        let heightLeft = imgHeight;
+        heightLeft -= 297; // A4高度297mm
+        while (heightLeft > 0) {
+            position = heightLeft - imgHeight;
+            pdf.addPage();
+            pdf.addImage(canvas.toDataURL('image/png'), 'PNG', 0, position, imgWidth, imgHeight);
+            heightLeft -= 297;
+        }
+
+        // 保存PDF
+        const fileName = `${currentKid}_上节课单词_${new Date().toLocaleDateString().replace(/\//g, '-')}.pdf`;
+        pdf.save(fileName);
+
+        // 清理临时DOM
+        document.body.removeChild(tempDiv);
+    });
+}
+
+        // 重置上节课记录
+        function resetLastLesson() {
+            if (!currentKid || !currentLibKey) {
+                alert('请先选择孩子和词库后再重置！');
+                return;
+            }
+            if (!confirm(`确定要重置【${currentKid} - ${currentLibKey.replace('library_'+currentKid+'_', '')}】的上节课记录吗？`)) {
+                return;
+            }
+            localStorage.removeItem('lastLesson_' + currentLibKey);
+            loadStats();
+            alert('上节课记录已重置！首页统计已更新');
+        }
+
+        // 初始化
+        loadKidList();
+    </script>
+</body>
+</html>

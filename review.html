@@ -1,0 +1,293 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+    <title>复习单词 - 英语陪练</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto,sans-serif;
+        }
+        body {
+            background: #f7f8fa;
+            padding-bottom: 100px;
+        }
+        .header {
+            background: white;
+            padding: 16px;
+            text-align: center;
+            font-size: 18px;
+            font-weight: 500;
+            border-bottom: 1px solid #e5e6eb;
+            position: relative;
+        }
+        .back-btn {
+            position: absolute;
+            left: 16px;
+            top: 50%;
+            transform: translateY(-50%);
+            font-size: 20px;
+            cursor: pointer;
+            background: none;
+            border: none;
+        }
+        .word-count {
+            padding: 16px;
+            color: #4e5969;
+            font-size: 16px;
+        }
+        .word-list {
+            background: white;
+            margin: 0 12px;
+            border-radius: 8px;
+            overflow: hidden;
+        }
+        .word-item {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 20px 16px;
+            border-bottom: 1px solid #f0f0f0;
+            cursor: pointer;
+        }
+        .word-item:last-child {
+            border-bottom: none;
+        }
+        .word-info {
+            flex: 1;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 20px;
+        }
+        .word-main {
+            display: flex;
+            align-items: baseline;
+            gap: 12px;
+            flex-shrink: 0;
+        }
+        .word-text {
+            font-size: 36px;
+            font-weight: 500;
+        }
+        .word-phonetic {
+            font-size: 16px;
+            color: #909399;
+        }
+        .word-meaning {
+            font-size: 18px;
+            color: #52c41a;
+            text-align: right;
+            display: none;
+            white-space: pre-wrap;
+            max-width: 45%;
+        }
+        .word-meaning.show {
+            display: block;
+        }
+        .checkbox {
+            width: 28px;
+            height: 28px;
+            border-radius: 50%;
+            border: 2px solid #dcdfe6;
+            background: white;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 16px;
+            transition: all 0.2s;
+            flex-shrink: 0;
+            margin-left: 8px;
+        }
+        .checkbox.selected {
+            background: #52c41a;
+            border-color: #52c41a;
+            color: white;
+        }
+        .study-footer {
+            position: fixed;
+            bottom: 0;
+            left: 0;
+            right: 0;
+            padding: 16px;
+            background: white;
+            border-top: 1px solid #e5e6eb;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            max-width: 600px;
+            margin: 0 auto;
+        }
+        .study-btn {
+            padding: 10px 24px;
+            border-radius: 8px;
+            border: none;
+            font-size: 16px;
+            cursor: pointer;
+            background: #52c41a;
+            color: white;
+            font-weight: 500;
+        }
+        .study-btn:disabled {
+            background: #c0c4cc;
+            cursor: not-allowed;
+        }
+        .select-count {
+            color: #4e5969;
+        }
+    </style>
+</head>
+<body>
+    <div class="header">
+        <button class="back-btn" onclick="window.location.href='index.html'">←</button>
+        复习单词
+    </div>
+
+    <div class="word-count" id="wordCount">当前共有 0 个单词</div>
+    <div class="word-list" id="wordList"></div>
+
+    <div class="study-footer">
+        <div class="select-count">已选择 <span id="selectedCount">0</span> 个单词复习</div>
+        <button class="study-btn" id="startBtn" disabled>开始复习</button>
+    </div>
+
+<script>
+function getQuery(name){
+    let reg=new RegExp("(^|&)"+name+"=([^&]*)(&|$)","i");
+    let r=window.location.search.substr(1).match(reg);
+    if(r)return decodeURIComponent(r[2]);return null;
+}
+
+var kid = getQuery('kid');
+var lib = getQuery('lib');
+
+var audioQueue=[];
+var isPlaying=false;
+
+function processQueue(){
+    if(isPlaying||audioQueue.length===0)return;
+    isPlaying=true;
+    var url=audioQueue.shift();
+    var audio=new Audio(url);
+    audio.onended=function(){isPlaying=false;processQueue();};
+    audio.play().catch(function(){isPlaying=false;processQueue();});
+}
+
+function speak(word){
+    audioQueue.push('https://dict.youdao.com/dictvoice?audio='+encodeURIComponent(word)+'&type=1');
+    processQueue();
+}
+
+var reviewWords=[];
+var selectedSet=new Set();
+var clickStates=new Map();
+var currentVisibleMeaning=null;
+
+function loadReviewWords(){
+    var key='lastLesson_'+lib;
+    var lastLesson=localStorage.getItem(key);
+    if(lastLesson){
+        reviewWords=JSON.parse(lastLesson).words||[];
+    }else{
+        reviewWords=[];
+    }
+    document.getElementById('wordCount').textContent='当前共有 '+reviewWords.length+' 个单词';
+    renderWordList();
+}
+
+function renderWordList(){
+    var container=document.getElementById('wordList');
+    container.innerHTML='';
+    reviewWords.forEach(function(item){
+        var isSelected=selectedSet.has(item.word);
+        var wordItem=document.createElement('div');
+        wordItem.className='word-item';
+        var infoDiv=document.createElement('div');
+        infoDiv.className='word-info';
+        var mainDiv=document.createElement('div');
+        mainDiv.className='word-main';
+        var wordSpan=document.createElement('span');
+        wordSpan.className='word-text';
+        wordSpan.textContent=item.word;
+        var phoneticSpan=document.createElement('span');
+        phoneticSpan.className='word-phonetic';
+        phoneticSpan.textContent=item.phonetic;
+        mainDiv.appendChild(wordSpan);
+        mainDiv.appendChild(phoneticSpan);
+        var meaningDiv=document.createElement('div');
+        meaningDiv.className='word-meaning';
+        meaningDiv.textContent=item.meaning;
+        infoDiv.appendChild(mainDiv);
+        infoDiv.appendChild(meaningDiv);
+
+        infoDiv.onclick=(function(word,meaningEl){
+            return function(){
+                var state=clickStates.get(word)||0;
+                if(currentVisibleMeaning&&currentVisibleMeaning!==meaningEl){
+                    currentVisibleMeaning.classList.remove('show');
+                    clickStates.clear();
+                }
+                if(state===0){
+                    speak(word);
+                    clickStates.set(word,1);
+                }else if(state===1){
+                    meaningEl.classList.add('show');
+                    currentVisibleMeaning=meaningEl;
+                    clickStates.set(word,2);
+                }
+            };
+        })(item.word,meaningDiv);
+
+        var checkbox=document.createElement('div');
+        checkbox.className='checkbox'+(isSelected?' selected':'');
+        checkbox.textContent=isSelected?'✓':'';
+        checkbox.onclick=(function(w,cb){
+            return function(e){
+                e.stopPropagation();
+                if(selectedSet.has(w)){
+                    selectedSet.delete(w);
+                    cb.textContent='';
+                    cb.classList.remove('selected');
+                }else{
+                    selectedSet.add(w);
+                    cb.textContent='✓';
+                    cb.classList.add('selected');
+                }
+                updateSelectedCount();
+            };
+        })(item.word,checkbox);
+
+        wordItem.appendChild(infoDiv);
+        wordItem.appendChild(checkbox);
+        container.appendChild(wordItem);
+    });
+    updateSelectedCount();
+}
+
+function updateSelectedCount(){
+    document.getElementById('selectedCount').textContent=selectedSet.size;
+    document.getElementById('startBtn').disabled=selectedSet.size===0;
+}
+
+document.getElementById('startBtn').onclick = function startReview() {
+    var selectedWords = reviewWords.filter(w => selectedSet.has(w.word));
+    if (!selectedWords.length) {
+        alert("请先选择要复习的单词");
+        return;
+    }
+
+    // ✅ 把选中的单词存进去
+    localStorage.setItem('studyWords', JSON.stringify(selectedWords));
+    localStorage.setItem('returnPage', 'review.html');
+    
+    // ✅ 跳转到你的训练页面（你自己的 study.html）
+    window.location.href = 'study.html?kid=' + encodeURIComponent(kid) + '&lib=' + encodeURIComponent(lib);
+};
+loadReviewWords();
+</script>
+</body>
+</html>

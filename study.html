@@ -1,0 +1,376 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+    <title>学习单词 - 英语陪练</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+        }
+        body {
+            background: #f7f8fa;
+            padding-bottom: 80px;
+        }
+        .header {
+            background: white;
+            padding: 16px;
+            text-align: center;
+            font-size: 18px;
+            font-weight: 500;
+            border-bottom: 1px solid #e5e6eb;
+            position: relative;
+        }
+        .back-btn {
+            position: absolute;
+            left: 16px;
+            top: 50%;
+            transform: translateY(-50%);
+            font-size: 20px;
+            cursor: pointer;
+            background: none;
+            border: none;
+        }
+        .progress-tip {
+            background: #e6f7ff;
+            padding: 12px;
+            margin: 12px;
+            border-radius: 8px;
+            text-align: center;
+            color: #1890ff;
+            font-size: 14px;
+        }
+        .practice-word-list {
+            padding: 16px 12px;
+        }
+        .practice-word-item {
+            background: white;
+            border-radius: 12px;
+            padding: 20px 16px;
+            margin-bottom: 12px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            border: 2px solid transparent;
+            cursor: pointer;
+        }
+        .practice-word-item.active {
+            border-color: #52c41a;
+            background: #f6ffed;
+        }
+        .practice-word-item.inactive {
+            opacity: 0.5;
+        }
+        .practice-word-text {
+            font-size: 32px;
+            font-weight: 500;
+        }
+        .practice-word-meaning {
+            font-size: 18px;
+            color: #52c41a;
+            margin-top: 8px;
+            display: none;
+        }
+        .practice-word-meaning.show {
+            display: block;
+        }
+        .practice-word-phonetic {
+            font-size: 14px;
+            color: #909399;
+            margin-top: 4px;
+        }
+        .step-btn {
+            width: 48px;
+            height: 48px;
+            border-radius: 50%;
+            background: #52c41a;
+            color: white;
+            border: none;
+            font-size: 18px;
+            font-weight: bold;
+            cursor: pointer;
+        }
+        .control-bar {
+            position: fixed;
+            bottom: 0;
+            left: 0;
+            right: 0;
+            padding: 12px 16px;
+            background: white;
+            border-top: 1px solid #e5e6eb;
+            display: flex;
+            gap: 12px;
+            max-width: 600px;
+            margin: 0 auto;
+        }
+        .control-btn, .speed-select {
+            padding: 8px 16px;
+            border-radius: 8px;
+            border: 1px solid #dcdfe6;
+            background: white;
+            font-size: 14px;
+            cursor: pointer;
+        }
+        .complete-btn {
+            margin: 16px 12px;
+            padding: 14px;
+            background: #52c41a;
+            color: white;
+            border: none;
+            border-radius: 12px;
+            font-size: 16px;
+            cursor: pointer;
+            width: calc(100% - 24px);
+        }
+    </style>
+</head>
+<body>
+    <div class="header">
+        <button class="back-btn" onclick="backToReturn()">←</button>
+        单词学习
+    </div>
+    <div class="progress-tip">📖 点击绿色按钮学习，第3/4次显示释义</div>
+    <div class="practice-word-list" id="practiceWordList"></div>
+    <div class="control-bar">
+        <button class="control-btn" onclick="manualRead()">🔄 人工带读</button>
+        <select class="speed-select" id="speedSelect" onchange="changeSpeed()">
+            <option value="1.2">1.2x</option>
+            <option value="1.5" selected>1.5x</option>
+            <option value="2.0">2.0x</option>
+        </select>
+    </div>
+
+    <script>
+   // 发音
+    var audioQueue = [];
+    var isPlaying = false;
+    var currentSpeed = 1.5;
+
+    function processQueue() {
+        if (isPlaying || audioQueue.length === 0) return;
+        isPlaying = true;
+        var item = audioQueue.shift();
+        var audio = new Audio(item.url);
+        audio.playbackRate = currentSpeed;
+        audio.onended = function() { isPlaying = false; processQueue(); };
+        audio.play().catch(function(e) { isPlaying = false; processQueue(); });
+    }
+
+    function speak(word) {
+        audioQueue.push({ url: 'https://dict.youdao.com/dictvoice?audio=' + encodeURIComponent(word) + '&type=1' });
+        processQueue();
+    }
+
+    function speakZh(text) {
+        var clean = text;
+        audioQueue.push({ url: 'https://dict.youdao.com/dictvoice?audio=' + encodeURIComponent(clean) + '&type=2' });
+        processQueue();
+    }
+
+    function speakMultiple(word, times) {
+        for (var i = 0; i < times; i++) speak(word);
+    }
+
+    function changeSpeed() { currentSpeed = parseFloat(document.getElementById('speedSelect').value); }
+    function manualRead() {
+        if (studyState.currentIndex < currentGroup.length) {
+            speak(currentGroup[studyState.currentIndex].word);
+        }
+    }
+
+
+        // 全局变量
+        var currentGroup = [];
+        var studyState = {
+            currentIndex: 0, step: 0, reviewMode: false,
+            reviewQueue: [], reviewPos: 0, learnedIndices: []
+        };
+        var practiceClickCount = new Map();
+
+        // 加载要学习的单词
+        var studyWords = localStorage.getItem('studyWords');
+        if (!studyWords) {
+            alert('没有需要学习的单词！');
+            window.location.href = 'index.html';
+        }
+        currentGroup = JSON.parse(studyWords);
+
+        function escapeHtml(str) {
+            if (!str) return '';
+            return str.replace(/[&<>]/g, function(m) {
+                return m === '&' ? '&amp;' : (m === '<' ? '&lt;' : '&gt;');
+            });
+        }
+
+        // 统一点击逻辑：第一次发音，第二次显示释义，切换关闭
+        var currentVisibleMeaning = null;
+        var clickStates = new Map();
+
+        function renderPracticeList() {
+            var container = document.getElementById('practiceWordList');
+            container.innerHTML = '';
+            for (var i = 0; i < currentGroup.length; i++) {
+                var item = currentGroup[i];
+                var isActive = i === studyState.currentIndex;
+                var div = document.createElement('div');
+                div.className = 'practice-word-item ' + (isActive ? 'active' : 'inactive');
+                var leftDiv = document.createElement('div');
+                leftDiv.style.flex = 1;
+                leftDiv.style.display = 'flex';
+                leftDiv.style.alignItems = 'center';
+                leftDiv.style.justifyContent = 'space-between';
+                leftDiv.style.gap = '12px';
+
+                var wordPart = document.createElement('div');
+                var wordDiv = document.createElement('div');
+                wordDiv.className = 'practice-word-text';
+                wordDiv.textContent = item.word;
+                var phoneticDiv = document.createElement('div');
+                phoneticDiv.className = 'practice-word-phonetic';
+                phoneticDiv.textContent = item.phonetic;
+                wordPart.appendChild(wordDiv);
+                wordPart.appendChild(phoneticDiv);
+
+                var meaningDiv = document.createElement('div');
+                meaningDiv.className = 'practice-word-meaning';
+                meaningDiv.id = 'practice-meaning-' + i;
+                meaningDiv.textContent = item.meaning;
+
+                // 根据当前 step 决定是否显示释义
+if (i === studyState.currentIndex && (studyState.step === 3 || studyState.step === 4)) {
+    meaningDiv.classList.add('show');
+} else {
+    meaningDiv.classList.remove('show');
+}
+
+                leftDiv.appendChild(wordPart);
+                leftDiv.appendChild(meaningDiv);
+
+                // 正确点击逻辑
+                leftDiv.onclick = (function(w, meaningEl) {
+                    return function() {
+                        var state = clickStates.get(w) || 0;
+                        if (currentVisibleMeaning && currentVisibleMeaning !== meaningEl) {
+                            currentVisibleMeaning.classList.remove('show');
+                            clickStates.clear();
+                        }
+                        if (state === 0) {
+                            speak(w);
+                            clickStates.set(w, 1);
+                        } else if (state === 1) {
+                            meaningEl.classList.add('show');
+                            currentVisibleMeaning = meaningEl;
+                            clickStates.set(w, 2);
+                        }
+                    };
+                })(item.word, meaningDiv);
+
+                var stepBtn = document.createElement('button');
+                stepBtn.className = 'step-btn';
+                stepBtn.textContent = studyState.step > 0 ? studyState.step : '1';
+                stepBtn.onclick = (function(idx) {
+                    return function(e) {
+                        e.stopPropagation();
+                        handleStudyStep(idx);
+                    };
+                })(i);
+                div.appendChild(leftDiv);
+                div.appendChild(stepBtn);
+                container.appendChild(div);
+            }
+        }
+
+      function handleStudyStep(wordIdx) {
+    if (wordIdx !== studyState.currentIndex) return;
+
+    var currentWord = currentGroup[studyState.currentIndex];
+
+    if (!studyState.reviewMode) {
+        studyState.step++;
+        switch (studyState.step) {
+            case 1:
+                speak(currentWord.word);
+                break;
+            case 2:
+                // speak(currentWord.word + " " + currentWord.word + " " + currentWord.word);
+                break;
+            case 3:
+                // speak(currentWord.word);
+                setTimeout(() => { speakZh(currentWord.meaning); }, 600);
+                break;
+            case 4:
+                // speak(currentWord.word + " " + currentWord.word);
+                setTimeout(() => { speakZh(currentWord.meaning); }, 800);
+                break;
+            case 5:
+                speak(currentWord.word);
+                finishCurrentWord();
+                break;
+        }
+    } else {
+        speak(currentWord.word);
+        nextReview();
+    }
+
+    renderPracticeList(); // 这行保留
+}
+
+        function finishCurrentWord() {
+            studyState.learnedIndices.push(studyState.currentIndex);
+            var reviewQueue = [];
+            for (var i = studyState.learnedIndices.length - 2; i >= 0; i--) reviewQueue.push(studyState.learnedIndices[i]);
+            for (var i = 1; i < studyState.learnedIndices.length; i++) reviewQueue.push(studyState.learnedIndices[i]);
+            if (reviewQueue.length > 0) {
+                studyState.reviewMode = true;
+                studyState.reviewQueue = reviewQueue;
+                studyState.reviewPos = 0;
+                studyState.step = 0;
+                studyState.currentIndex = reviewQueue[0];
+                studyState.reviewPos = 1;
+            } else {
+                studyState.step = 0;
+                studyState.currentIndex++;
+                if (studyState.currentIndex >= currentGroup.length) {
+                    allWordsLearned();
+                    return;
+                }
+            }
+            renderPracticeList();
+        }
+
+        function nextReview() {
+            if (studyState.reviewPos >= studyState.reviewQueue.length) {
+                studyState.reviewMode = false;
+                studyState.reviewQueue = [];
+                studyState.reviewPos = 0;
+                studyState.step = 0;
+                studyState.currentIndex++;
+                if (studyState.currentIndex >= currentGroup.length) {
+                    allWordsLearned();
+                }
+            } else {
+                studyState.currentIndex = studyState.reviewQueue[studyState.reviewPos];
+                studyState.reviewPos++;
+            }
+            renderPracticeList();
+        }
+
+        function allWordsLearned() {
+            alert('所有单词学习完成！');
+            backToReturn();
+        }
+
+        function backToReturn() {
+            var returnPage = localStorage.getItem('returnPage') || 'index.html';
+            localStorage.removeItem('studyWords');
+            localStorage.removeItem('returnPage');
+            window.location.href = returnPage;
+        }
+
+        renderPracticeList();
+    </script>
+</body>
+</html>
