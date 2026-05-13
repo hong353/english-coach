@@ -85,8 +85,20 @@ function cleanMeaning(m){if(!m)return'';return m.replace(/^[a-z\\/]+\\.\\s*/,'')
 
 var audioQueue=[],isPlaying=false,currentSpeed=1.5;
 function processQueue(){if(isPlaying||audioQueue.length===0)return;isPlaying=true;var item=audioQueue.shift();var a=new Audio(item.url);a.playbackRate=currentSpeed;a.onended=function(){isPlaying=false;processQueue();};a.play().catch(function(){isPlaying=false;processQueue();});}
-function speak(w){audioQueue.push({url:'https://dict.youdao.com/dictvoice?audio='+encodeURIComponent(w)+'&type=1'});processQueue();}
-function speakZh(t){audioQueue.push({url:'https://dict.youdao.com/dictvoice?audio='+encodeURIComponent(t)+'&type=2'});processQueue();}
+// 英文朗读：支持自然连读
+function speak(word, times = 1) {
+    // 调用您自己的云函数，支持 times 参数
+    const url = `/api/tts?word=${encodeURIComponent(word)}&times=${times}`;
+    audioQueue.push({ url });
+    processQueue();
+}
+
+// 中文朗读（保持不变）
+function speakZh(text) {
+    const url = `https://tql.ai/api/tts?text=${encodeURIComponent(text)}&voice=zh-CN-XiaoxiaoNeural`;
+    audioQueue.push({ url });
+    processQueue();
+}
 function changeSpeed(){currentSpeed=parseFloat(document.getElementById('speedSelect').value);}
 function manualRead(){if(studyState.currentIndex<currentGroup.length)speak(currentGroup[studyState.currentIndex].word);}
 
