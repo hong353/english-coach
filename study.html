@@ -158,17 +158,18 @@
         audio.onended = function() { isPlaying = false; processQueue(); };
         audio.play().catch(function(e) { isPlaying = false; processQueue(); });
     }
-
-    function speak(w) {
-    // 使用 Vercel 的云函数
-    var url = `/api/speak?word=${encodeURIComponent(w)}`;
-    audioQueue.push({ url: url });
+// 英文朗读：支持自然连读
+function speak(word, times = 1) {
+    // 调用您自己的云函数，支持 times 参数
+    const url = `/api/tts?word=${encodeURIComponent(word)}&times=${times}`;
+    audioQueue.push({ url });
     processQueue();
 }
 
-function speakZh(t) {
-    // 中文暂时保持原有道
-    audioQueue.push({ url: 'https://dict.youdao.com/dictvoice?audio=' + encodeURIComponent(t) + '&type=2' });
+// 中文朗读（保持不变）
+function speakZh(text) {
+    const url = `https://tql.ai/api/tts?text=${encodeURIComponent(text)}&voice=zh-CN-XiaoxiaoNeural`;
+    audioQueue.push({ url });
     processQueue();
 }
 
@@ -293,22 +294,22 @@ if (i === studyState.currentIndex && (studyState.step === 3 || studyState.step =
     if (!studyState.reviewMode) {
         studyState.step++;
         switch (studyState.step) {
-            case 1:
-                speak(currentWord.word);
+           case 1:
+                speak(currentWord.word, 1);      // 1遍
                 break;
             case 2:
-                // speak(currentWord.word + " " + currentWord.word + " " + currentWord.word);
+                speak(currentWord.word, 3);      // 自然三连读 "apple, apple, apple"
                 break;
             case 3:
-                // speak(currentWord.word);
-                setTimeout(() => { speakZh(currentWord.meaning); }, 600);
+                speak(currentWord.word, 1);      // 1遍英文
+                setTimeout(() => { speakZh(currentWord.meaning); }, 800);
                 break;
             case 4:
-                // speak(currentWord.word + " " + currentWord.word);
+                speak(currentWord.word, 2);      // 自然两连读 "apple, apple"
                 setTimeout(() => { speakZh(currentWord.meaning); }, 800);
                 break;
             case 5:
-                speak(currentWord.word);
+                speak(currentWord.word, 1);
                 finishCurrentWord();
                 break;
         }
