@@ -159,16 +159,18 @@
         audio.play().catch(function(e) { isPlaying = false; processQueue(); });
     }
 
-    function speak(word) {
-        audioQueue.push({ url: 'https://dict.youdao.com/dictvoice?audio=' + encodeURIComponent(word) + '&type=1' });
-        processQueue();
-    }
+    function speak(w) {
+    // 使用 Vercel 的云函数
+    var url = `/api/speak?word=${encodeURIComponent(w)}`;
+    audioQueue.push({ url: url });
+    processQueue();
+}
 
-    function speakZh(text) {
-        var clean = text;
-        audioQueue.push({ url: 'https://dict.youdao.com/dictvoice?audio=' + encodeURIComponent(clean) + '&type=2' });
-        processQueue();
-    }
+function speakZh(t) {
+    // 中文暂时保持原有道
+    audioQueue.push({ url: 'https://dict.youdao.com/dictvoice?audio=' + encodeURIComponent(t) + '&type=2' });
+    processQueue();
+}
 
     function speakMultiple(word, times) {
         for (var i = 0; i < times; i++) speak(word);
