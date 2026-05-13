@@ -159,16 +159,26 @@
         audio.play().catch(function(e) { isPlaying = false; processQueue(); });
     }
 
-    function speak(word) {
-        audioQueue.push({ url: 'https://dict.youdao.com/dictvoice?audio=' + encodeURIComponent(word) + '&type=1' });
-        processQueue();
-    }
+    // 英文朗读：AI 三连读（en-US-AriaNeural）
+function speak(word) {
+    // AI 生成：单词 连续读 3 遍（标准美式音色）
+    const voice = "en-US-AriaNeural";
+    const text = `${word} ${word} ${word}`; // 三连读
+    const url = `https://tql.ai/api/tts?text=${encodeURIComponent(text)}&voice=${voice}`;
+    
+    audioQueue.push({ url });
+    processQueue();
+}
 
-    function speakZh(text) {
-        var clean = text;
-        audioQueue.push({ url: 'https://dict.youdao.com/dictvoice?audio=' + encodeURIComponent(clean) + '&type=2' });
-        processQueue();
-    }
+// 中文朗读：AI 标准朗读（不变速、清晰）
+function speakZh(text) {
+    const clean = text;
+    const voice = "zh-CN-XiaoxiaoNeural"; // 微软标准中文女声
+    const url = `https://tql.ai/api/tts?text=${encodeURIComponent(clean)}&voice=${voice}`;
+    
+    audioQueue.push({ url });
+    processQueue();
+}
 
     function speakMultiple(word, times) {
         for (var i = 0; i < times; i++) speak(word);
